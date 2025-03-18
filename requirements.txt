@@ -1,0 +1,8 @@
+easyocr
+numpy
+Pillow
+fuzzywuzzy
+flask
+flask-cors
+pdf2image
+opencv-python-headless

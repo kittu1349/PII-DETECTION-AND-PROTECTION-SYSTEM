@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Admin Tool</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .tab-content {
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            border-top: none;
+            border-radius: 0 0 0.25rem 0.25rem;
+        }
+        .nav-tabs {
+            margin-bottom: 0;
+        }
+        .card {
+            margin-bottom: 15px;
+        }
+        .event-card {
+            transition: all 0.3s ease;
+        }
+        .event-card:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transform: translateY(-3px);
+        }
+        .badge-pill {
+            border-radius: 50rem;
+            padding: 0.35em 0.65em;
+        }
+        .loading-spinner {
+            width: 3rem;
+            height: 3rem;
+            margin: 2rem auto;
+            display: block;
+        }
+        #ipfsViewerModal .modal-dialog {
+            max-width: 800px;
+        }
+        .table-responsive {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        .cid-link {
+            cursor: pointer;
+            color: #0d6efd;
+            text-decoration: underline;
+        }
+        .cid-link:hover {
+            color: #0a58ca;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-cubes me-2"></i>
+                Blockchain Admin Tool
+            </a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="events-tab" data-bs-toggle="tab" data-bs-target="#events" type="button" role="tab" aria-controls="events" aria-selected="true">
+                            <i class="fas fa-history me-2"></i>Blockchain Events
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="transactions-tab" data-bs-toggle="tab" data-bs-target="#transactions" type="button" role="tab" aria-controls="transactions" aria-selected="false">
+                            <i class="fas fa-exchange-alt me-2"></i>Transactions
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="cids-tab" data-bs-toggle="tab" data-bs-target="#cids" type="button" role="tab" aria-controls="cids" aria-selected="false">
+                            <i class="fas fa-database me-2"></i>CIDs Lookup
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="myTabContent">
+                    <!-- Events Tab -->
+                    <div class="tab-pane fade show active" id="events" role="tabpanel" aria-labelledby="events-tab">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h3>Recent Blockchain Events</h3>
+                            <button id="refreshEvents" class="btn btn-primary">
+                                <i class="fas fa-sync-alt me-2"></i>Refresh
+                            </button>
+                        </div>
+                        <div id="eventsLoading" class="text-center">
+                            <div class="spinner-border loading-spinner" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div id="eventsContainer"></div>
+                    </div>
+
+                    <!-- Transactions Tab -->
+                    <div class="tab-pane fade" id="transactions" role="tabpanel" aria-labelledby="transactions-tab">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <h3>Contract Transactions</h3>
+                            <button id="refreshTransactions" class="btn btn-primary">
+                                <i class="fas fa-sync-alt me-2"></i>Refresh
+                            </button>
+                        </div>
+                        <div id="transactionsLoading" class="text-center">
+                            <div class="spinner-border loading-spinner" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Block #</th>
+                                        <th>Timestamp</th>
+                                        <th>Tx Hash</th>
+                                        <th>From</th>
+                                        <th>Function</th>
+                                        <th>Parameters</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transactionsTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- CIDs Lookup Tab -->
+                    <div class="tab-pane fade" id="cids" role="tabpanel" aria-labelledby="cids-tab">
+                        <h3 class="mb-4">Lookup CIDs by Address</h3>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="input-group mb-3">
+                                    <input type="text" id="addressInput" class="form-control" placeholder="Enter Ethereum Address" aria-label="Ethereum Address">
+                                    <button class="btn btn-primary" type="button" id="lookupCidsBtn">
+                                        <i class="fas fa-search me-2"></i>Lookup
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="cidsLoading" class="text-center" style="display: none;">
+                            <div class="spinner-border loading-spinner" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                        <div id="cidsResults">
+                            <div class="alert alert-info">
+                                Enter an Ethereum address to view associated CIDs.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- IPFS Viewer Modal -->
+    <div class="modal fade" id="ipfsViewerModal" tabindex="-1" aria-labelledby="ipfsViewerModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="ipfsViewerModalLabel">IPFS Content Viewer</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <strong>CID: </strong><span id="modalCid"></span>
+                    </div>
+                    <div class="text-center mb-3">
+                        <a id="ipfsGatewayLink" href="#" target="_blank" class="btn btn-primary">
+                            <i class="fas fa-external-link-alt me-2"></i>View on IPFS Gateway
+                        </a>
+                    </div>
+                    <div class="alert alert-info">
+                        IPFS content will be displayed here if it's an image. For other file types, use the "View on IPFS Gateway" button above.
+                    </div>
+                    <div id="ipfsContent" class="text-center"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize variables
+            const apiBaseUrl = window.location.origin;
+            const ipfsGateway = 'https://gateway.pinata.cloud/ipfs/';
+            
+            // Function to truncate middle of long strings (for addresses and hashes)
+            function truncateMiddle(str, startChars = 6, endChars = 4) {
+                if (str.length <= startChars + endChars) {
+                    return str;
+                }
+                return str.substring(0, startChars) + '...' + str.substring(str.length - endChars);
+            }
+            
+            // Function to show error messages
+            function showError(containerId, message) {
+                document.getElementById(containerId).innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>${message}
+                    </div>
+                `;
+            }
+            
+            // Event Listeners
+            document.getElementById('refreshEvents').addEventListener('click', fetchEvents);
+            document.getElementById('refreshTransactions').addEventListener('click', fetchTransactions);
+            document.getElementById('lookupCidsBtn').addEventListener('click', lookupCids);
+            
+            // IPFS Content Viewer function - must be defined globally
+            window.viewIpfsContent = function(cid) {
+                const modal = new bootstrap.Modal(document.getElementById('ipfsViewerModal'));
+                
+                // Set modal content
+                document.getElementById('modalCid').textContent = cid;
+                document.getElementById('ipfsGatewayLink').href = `${ipfsGateway}${cid}`;
+                
+                // Try to display content if it's an image
+                const ipfsContentDiv = document.getElementById('ipfsContent');
+                ipfsContentDiv.innerHTML = '';
+                
+                // Check if it looks like an image CID (basic check based on common image formats in IPFS)
+                if (cid) {
+                    const img = document.createElement('img');
+                    img.src = `${ipfsGateway}${cid}`;
+                    img.className = 'img-fluid';
+                    img.onerror = function() {
+                        ipfsContentDiv.innerHTML = '<div class="alert alert-warning">Unable to display content as image. Use the gateway link above.</div>';
+                    };
+                    img.onload = function() {
+                        ipfsContentDiv.appendChild(img);
+                    };
+                }
+                
+                modal.show();
+            };
+            
+            // Initialize tabs
+            const triggerTabList = [].slice.call(document.querySelectorAll('#myTab button'));
+            triggerTabList.forEach(function(triggerEl) {
+                triggerEl.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    
+                    // Get the selected tab ID
+                    const tabId = this.getAttribute('aria-controls');
+                    
+                    // Load data based on selected tab
+                    if (tabId === 'events') {
+                        fetchEvents();
+                    } else if (tabId === 'transactions') {
+                        fetchTransactions();
+                    }
+                });
+            });
+            
+            // Initial data fetch
+            fetchEvents();
+            
+            // Functions
+            async function fetchEvents() {
+                try {
+                    document.getElementById('eventsLoading').style.display = 'block';
+                    document.getElementById('eventsContainer').innerHTML = '';
+                    
+                    const response = await fetch(`${apiBaseUrl}/api/events`);
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        displayEvents(data.events);
+                    } else {
+                        showError('eventsContainer', 'Failed to fetch events');
+                    }
+                } catch (error) {
+                    console.error('Error fetching events:', error);
+                    showError('eventsContainer', 'An error occurred while fetching events');
+                } finally {
+                    document.getElementById('eventsLoading').style.display = 'none';
+                }
+            }
+            
+            function displayEvents(events) {
+                const container = document.getElementById('eventsContainer');
+                
+                if (events.length === 0) {
+                    container.innerHTML = '<div class="alert alert-info">No events found</div>';
+                    return;
+                }
+                
+                let html = '';
+                
+                events.forEach(event => {
+                    const cardClass = event.type === 'PIIDetected' ? 'border-warning' : 'border-info';
+                    const badgeClass = event.type === 'PIIDetected' ? 'bg-warning text-dark' : 'bg-info';
+                    
+                    html += `
+                    <div class="card ${cardClass} event-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>Block #${event.blockNumber}</span>
+                            <span class="badge ${badgeClass} badge-pill">${event.type}</span>
+                        </div>
+                        <div class="card-body">
+                            <h5 class="card-title">Transaction: ${truncateMiddle(event.transactionHash)}</h5>
+                            <p class="card-text"><strong>Sender:</strong> ${truncateMiddle(event.sender)}</p>
+                            <p class="card-text"><strong>Timestamp:</strong> ${event.timestamp}</p>
+                    `;
+                    
+                    if (event.type === 'PIIDetected') {
+                        html += `
+                            <p class="card-text"><strong>Detected PII:</strong> ${event.detectedPii}</p>
+                            <p class="card-text"><strong>Image Hash:</strong> ${event.imageHash}</p>
+                        `;
+                    } else if (event.type === 'CIDStored') {
+                        html += `
+                            <p class="card-text"><strong>CID:</strong> 
+                                <span class="cid-link" onclick="viewIpfsContent('${event.cid}')">${event.cid}</span>
+                            </p>
+                        `;
+                    }
+                    
+                    html += `
+                        </div>
+                        <div class="card-footer text-muted">
+                            <a href="https://explorer.example.com/tx/${event.transactionHash}" target="_blank" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-external-link-alt me-1"></i>View in Explorer
+                            </a>
+                        </div>
+                    </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+            }
+            
+            async function fetchTransactions() {
+                try {
+                    document.getElementById('transactionsLoading').style.display = 'block';
+                    document.getElementById('transactionsTableBody').innerHTML = '';
+                    
+                    const response = await fetch(`${apiBaseUrl}/api/transactions`);
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        displayTransactions(data.transactions);
+                    } else {
+                        showError('transactionsTableBody', 'Failed to fetch transactions');
+                    }
+                } catch (error) {
+                    console.error('Error fetching transactions:', error);
+                    showError('transactionsTableBody', 'An error occurred while fetching transactions');
+                } finally {
+                    document.getElementById('transactionsLoading').style.display = 'none';
+                }
+            }
+            
+            function displayTransactions(transactions) {
+                const tableBody = document.getElementById('transactionsTableBody');
+                
+                if (transactions.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center">No transactions found</td>
+                        </tr>
+                    `;
+                    return;
+                }
+                
+                let html = '';
+                
+                transactions.forEach(tx => {
+                    let paramsHtml = '';
+                    if (tx.decodedParams) {
+                        for (const [key, value] of Object.entries(tx.decodedParams)) {
+                            if (key === 'cid') {
+                                paramsHtml += `<div><strong>${key}:</strong> <span class="cid-link" onclick="viewIpfsContent('${value}')">${truncateMiddle(value, 8, 6)}</span></div>`;
+                            } else {
+                                paramsHtml += `<div><strong>${key}:</strong> ${value}</div>`;
+                            }
+                        }
+                    }
+                    
+                    const statusBadge = tx.status === 'Success' 
+                        ? '<span class="badge bg-success">Success</span>' 
+                        : '<span class="badge bg-danger">Failed</span>';
+                    
+                    html += `
+                    <tr>
+                        <td>${tx.blockNumber}</td>
+                        <td>${tx.timestamp}</td>
+                        <td>${truncateMiddle(tx.hash, 6, 4)}</td>
+                        <td>${truncateMiddle(tx.from, 6, 4)}</td>
+                        <td>${tx.functionName}</td>
+                        <td>${paramsHtml}</td>
+                        <td>${statusBadge}</td>
+                    </tr>
+                    `;
+                });
+                
+                tableBody.innerHTML = html;
+            }
+            
+            async function lookupCids() {
+                const addressInput = document.getElementById('addressInput').value.trim();
+                
+                if (!addressInput) {
+                    document.getElementById('cidsResults').innerHTML = `
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>Please enter an Ethereum address
+                        </div>
+                    `;
+                    return;
+                }
+                
+                try {
+                    document.getElementById('cidsLoading').style.display = 'block';
+                    document.getElementById('cidsResults').innerHTML = '';
+                    
+                    const response = await fetch(`${apiBaseUrl}/api/cids/${addressInput}`);
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        displayCids(data.cids, addressInput);
+                    } else {
+                        showError('cidsResults', data.message || 'Failed to lookup CIDs');
+                    }
+                } catch (error) {
+                    console.error('Error looking up CIDs:', error);
+                    showError('cidsResults', 'An error occurred while looking up CIDs');
+                } finally {
+                    document.getElementById('cidsLoading').style.display = 'none';
+                }
+            }
+            
+            function displayCids(cids, address) {
+                const container = document.getElementById('cidsResults');
+                
+                if (cids.length === 0) {
+                    container.innerHTML = `
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>No CIDs found for address ${truncateMiddle(address)}
+                        </div>
+                    `;
+                    return;
+                }
+                
+                let html = `
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">CIDs for ${truncateMiddle(address)}</h5>
+                        </div>
+                        <div class="card-body">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>CID</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                `;
+                
+                cids.forEach((cid, index) => {
+                    html += `
+                        <tr>
+                            <td>${index + 1}</td>
+                            <td>${cid}</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="viewIpfsContent('${cid}')">
+                                    <i class="fas fa-eye me-1"></i>View
+                                </button>
+                                <a href="${ipfsGateway}${cid}" target="_blank" class="btn btn-sm btn-secondary ms-2">
+                                    <i class="fas fa-external-link-alt me-1"></i>Gateway
+                                </a>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += `
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                
+                container.innerHTML = html;
+            }
+        });
+    </script>
+</body>
+</html>
